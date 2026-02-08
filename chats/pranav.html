@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat | Maalkin</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap');
+        :root {
+            --glass: rgba(255, 255, 255, 0.15); --glass-border: rgba(255, 255, 255, 0.25);
+            --my-pink: #ff8fa3; --their-white: rgba(255, 255, 255, 0.95);
+            --love-red: #ff4757; --online-green: #2ecc71; --offline-grey: #95a5a6;
+            --tick-grey: #b2bec3; --tick-red: #ff4757;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+        body { background: linear-gradient(145deg, #eeb0b0 0%, #d49393 100%); font-family: 'Inter', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* Header */
+        .chat-header { padding: 12px 20px; background: var(--glass); backdrop-filter: blur(20px); border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; gap: 15px; z-index: 100; position: relative; }
+        .pfp-container { position: relative; cursor: pointer; }
+        .header-pfp { width: 45px; height: 45px; border-radius: 50%; border: 2px solid white; object-fit: cover; }
+        .status-dot { position: absolute; bottom: 2px; right: 2px; width: 12px; height: 12px; background: var(--offline-grey); border: 2px solid white; border-radius: 50%; transition: 0.3s; }
+        .user-info h2 { color: white; font-size: 17px; font-weight: 900; }
+        .typing-indicator { color: white; font-size: 10px; font-weight: 600; opacity: 0; transition: 0.3s; display: block; margin-top: 2px; }
+        .search-doodle { margin-left: auto; cursor: pointer; padding: 8px; border-radius: 50%; }
+
+        /* Search Overlay */
+        #search-bar-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 101; display: none; align-items: center; padding: 0 15px; gap: 10px; }
+        #search-input { flex: 1; height: 40px; border: none; outline: none; font-size: 14px; background: transparent; }
+
+        /* Chat Flow */
+        #chat-flow { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; contain: content; }
+        .loader { align-self: center; width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid white; border-radius: 50%; animation: spin 1s linear infinite; display: none; margin: 10px 0; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .date-divider { align-self: center; background: rgba(0,0,0,0.1); padding: 4px 12px; border-radius: 12px; color: white; font-size: 9px; font-weight: 800; margin: 15px 0; text-transform: uppercase; }
+
+        /* Messages */
+        .msg-container { display: flex; flex-direction: column; max-width: 75%; position: relative; }
+        .msg { padding: 10px 14px; font-size: 14px; border-radius: 18px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.05); word-wrap: break-word; }
+        .me-container { align-self: flex-end; align-items: flex-end; }
+        .them-container { align-self: flex-start; align-items: flex-start; }
+        .me { background: var(--my-pink); color: white; border-bottom-right-radius: 2px; }
+        .them { background: var(--their-white); color: #333; border-bottom-left-radius: 2px; }
+        
+        .meta-row { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 4px; opacity: 0.7; }
+        .time { font-size: 9px; font-weight: 600; }
+        .tick-icon { width: 14px; height: 8px; fill: var(--tick-grey); transition: fill 0.3s; }
+        .read-tick { fill: var(--tick-red) !important; }
+        .reaction-bubble { position: absolute; bottom: -10px; right: -5px; background: white; border-radius: 10px; padding: 2px 5px; font-size: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border: 1px solid #eee; display: none; z-index: 5; }
+        .love-theme { border: 2px solid var(--love-red) !important; background: white !important; color: var(--love-red) !important; animation: pulse 2s infinite; font-weight: 700; }
+        .love-highlight { text-decoration: underline; text-decoration-style: wavy; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.03); } 100% { transform: scale(1); } }
+
+        /* Menus */
+        .edit-menu, .plus-menu { position: absolute; background: white; border-radius: 20px; padding: 8px; display: none; flex-direction: column; box-shadow: 0 15px 50px rgba(0,0,0,0.2); z-index: 500; }
+        .edit-menu { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 180px; gap: 4px; }
+        .plus-menu { bottom: 85px; left: 15px; width: 160px; gap: 6px; }
+        .reaction-bar { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -150%); background: white; border-radius: 50px; padding: 10px 15px; display: none; gap: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); z-index: 600; }
+        .react-emoji { font-size: 24px; cursor: pointer; transition: 0.2s; }
+        .react-emoji:hover { transform: scale(1.5); }
+        .menu-item { padding: 10px 15px; font-size: 11px; font-weight: 800; color: #444; cursor: pointer; border-radius: 12px; text-transform: uppercase; }
+        .menu-item:active { background: #f0f0f0; }
+
+        /* Input */
+        .input-area { padding: 12px 15px; background: var(--glass); backdrop-filter: blur(30px); border-top: 1px solid var(--glass-border); display: flex; align-items: center; gap: 10px; }
+        .plus-btn { width: 42px; height: 42px; background: white; border-radius: 50%; border: none; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        input { flex: 1; height: 42px; background: rgba(255,255,255,0.25); border: 1px solid var(--glass-border); border-radius: 25px; padding: 0 20px; color: white; outline: none; font-weight: 500; }
+        input::placeholder { color: rgba(255,255,255,0.8); }
+        .send-btn { background: none; border: none; cursor: pointer; padding: 5px; }
+
+        #pin-bar { background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); padding: 8px 20px; font-size: 11px; color: white; display: none; border-bottom: 1px solid var(--glass-border); font-weight: 700; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    </style>
+</head>
+<body>
+
+    <header class="chat-header">
+        <div id="search-bar-overlay">
+            <input type="text" id="search-input" placeholder="Search..." onkeyup="performSearch(this.value)">
+            <span class="close-search" onclick="closeSearch()">✕</span>
+        </div>
+        <div class="pfp-container" onclick="location.href='home.html'">
+            <img src="/chat/assets/vanshika.png" class="header-pfp" alt="Maalkin">
+            <div class="status-dot" id="statusDot"></div>
+        </div>
+        <div class="user-info">
+            <h2>Maalkin</h2>
+            <span class="typing-indicator" id="typingInd">typing...</span>
+        </div>
+        <div class="search-doodle" onclick="openSearch()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </div>
+    </header>
+
+    <div id="pin-bar" onclick="unpinMessage()">📌 Pinned: <span id="pin-text"></span></div>
+    <div id="search-results" style="display:none; position:absolute; top:60px; width:100%; background:white; z-index:90; padding:20px; max-height:80vh; overflow-y:auto;"></div>
+
+    <div id="chat-flow">
+        <div class="loader" id="loader"></div>
+    </div>
+
+    <div class="plus-menu" id="plusMenu">
+        <div class="menu-item" onclick="triggerUpload('image')">📷 Photo</div>
+        <div class="menu-item" onclick="sendUrl('video')">🎥 Video Link</div> <div class="menu-item" onclick="sendUrl('url')">🔗 URL</div>
+        <div class="menu-item" onclick="location.href='paths.html'">🗺️ Pathways</div>
+    </div>
+    
+    <div class="edit-menu" id="editMenu">
+        <div class="menu-item" id="copyOption" onclick="handleAction('copy')">Copy</div>
+        <div class="menu-item" id="editOption" onclick="handleAction('edit')">Edit</div>
+        <div class="menu-item" id="unsendOption" onclick="handleAction('unsend')">Unsend</div>
+        <div class="menu-item" onclick="handleAction('pin')">Pin</div>
+        <div class="menu-item" style="color:#ff4757;" onclick="closeMenus()">Cancel</div>
+    </div>
+
+    <div class="reaction-bar" id="reactionBar">
+        <span class="react-emoji" onclick="react('💖')">💖</span><span class="react-emoji" onclick="react('🤣')">🤣</span><span class="react-emoji" onclick="react('😭')">😭</span><span class="react-emoji" onclick="react('😡')">😡</span>
+    </div>
+
+    <input type="file" id="mediaInput" style="display:none;" accept="image/*">
+
+    <div class="input-area">
+        <button class="plus-btn" onclick="togglePlus()"><svg width="20" height="20" viewBox="0 0 24 24" stroke="#ff8fa3" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+        <input type="text" id="msgInput" placeholder="Message..." onkeypress="if(event.key==='Enter') sendMessage()" oninput="handleTyping()">
+        <button class="send-btn" onclick="sendMessage()"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getDatabase, ref, push, onValue, update, query, limitToLast, get, set, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBgQiuJHWCNfS4pIMHFIBpa6VsYrOx_oqU",
+            authDomain: "vanshika-chat.firebaseapp.com",
+            databaseURL: "https://vanshika-chat-default-rtdb.firebaseio.com",
+            projectId: "vanshika-chat",
+            appId: "1:564426358988:web:0e95c473fe3922c866c269"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const MY_NAME = "Pranav";
+        
+        let currentLimit = 30;
+        let lastMsgTime = 0;
+        let activeMessageId = null;
+        let activeMessageText = "";
+        let longPressTimer;
+        let typingTimeout;
+        let fullChatCache = [];
+
+        // --- PRESENCE & TYPING ---
+        const myRef = ref(db, 'status/pranav/online');
+        onValue(ref(db, '.info/connected'), (snap) => {
+            if (snap.val()) { set(myRef, true); onDisconnect(myRef).set(false); }
+        });
+        
+        onValue(ref(db, 'status/vanshika/online'), (snap) => {
+            document.getElementById('statusDot').style.background = snap.val() ? "var(--online-green)" : "var(--offline-grey)";
+        });
+
+        // Watch her typing
+        onValue(ref(db, 'status/vanshika/typing'), (snap) => {
+            document.getElementById('typingInd').style.opacity = snap.val() ? "1" : "0";
+        });
+
+        window.handleTyping = () => {
+            set(ref(db, 'status/pranav/typing'), true);
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => set(ref(db, 'status/pranav/typing'), false), 1500);
+        };
+
+        // --- CHAT RENDER ---
+        function loadChat() {
+            onValue(query(ref(db, "chats"), limitToLast(currentLimit)), (snapshot) => {
+                const data = snapshot.val();
+                if (!data) return;
+                const flow = document.getElementById('chat-flow');
+                flow.innerHTML = `<div class="loader" id="loader"></div>`;
+                lastMsgTime = 0;
+                
+                Object.keys(data).forEach(key => {
+                    if(!data[key].hidden) renderMessage(data[key], key);
+                });
+                
+                // Smart Scroll: Only scroll if near bottom
+                if(flow.scrollHeight - flow.scrollTop - flow.clientHeight < 300 || currentLimit === 30) {
+                    flow.scrollTop = flow.scrollHeight;
+                }
+            });
+        }
+
+        function renderMessage(data, id) {
+            const flow = document.getElementById('chat-flow');
+            
+            // Date Divider
+            const timeDiff = data.timestamp - lastMsgTime;
+            if (lastMsgTime !== 0 && timeDiff > (3.5 * 60 * 60 * 1000)) {
+                const d = document.createElement('div');
+                d.className = 'date-divider';
+                d.innerText = new Date(data.timestamp).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+                flow.appendChild(d);
+            }
+            lastMsgTime = data.timestamp;
+
+            const isMe = data.sender === MY_NAME;
+            const container = document.createElement('div');
+            container.className = `msg-container ${isMe ? 'me-container' : 'them-container'}`;
+
+            const div = document.createElement('div');
+            div.className = `msg ${isMe ? 'me' : 'them'}`;
+            if (data.text && (data.text.toLowerCase().includes('love') || data.text.toLowerCase().includes('miss you'))) {
+                div.classList.add('love-theme');
+                data.text = data.text.replace(/(love|miss you)/gi, '<span class="love-highlight">$1</span>');
+            }
+
+            let content = data.text;
+            if(data.type === 'image') content = `<img src="${data.url}" style="width:100%; border-radius:10px;">`;
+            if(data.type === 'video' || data.type === 'url') content = `<a href="${data.url}" target="_blank" style="color:white; text-decoration:underline;">🔗 Open Link/Video</a>`;
+
+            const tickHtml = isMe ? `<svg class="tick-icon ${data.read ? 'read-tick' : ''}" viewBox="0 0 16 16"><path d="M12.3 3.3l-6.3 6.3-2.3-2.3-1.4 1.4 3.7 3.7 7.7-7.7z"/><path d="M14.3 3.3l-6.3 6.3-2.3-2.3-1.4 1.4 3.7 3.7 7.7-7.7z" transform="translate(4,0)"/></svg>` : '';
+
+            div.innerHTML = `
+                ${content}
+                <div class="meta-row">
+                    <span class="time">${new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ${data.edited ? '✎' : ''}</span>
+                    <div class="ticks">${tickHtml}</div>
+                </div>
+                <div class="reaction-bubble" id="react-${id}">${data.reaction || ''}</div>
+            `;
+            if(data.reaction) div.querySelector('.reaction-bubble').style.display = 'block';
+
+            div.addEventListener('touchstart', () => { longPressTimer = setTimeout(() => openReactionMenu(id), 600); });
+            div.addEventListener('touchend', () => clearTimeout(longPressTimer));
+            div.ondblclick = () => openEditMenu(id, data.text, isMe);
+
+            container.appendChild(div);
+            flow.appendChild(container);
+        }
+
+        // --- IMAGE COMPRESSION & SEND ---
+        window.togglePlus = () => document.getElementById('plusMenu').style.display = 'flex';
+        
+        window.triggerUpload = (type) => {
+            if(type === 'image') {
+                const input = document.getElementById('mediaInput');
+                input.click();
+                input.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    
+                    // COMPRESSOR: Resizes to max 800px width
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const img = new Image();
+                        img.src = event.target.result;
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            const maxWidth = 800;
+                            const scaleSize = maxWidth / img.width;
+                            canvas.width = maxWidth;
+                            canvas.height = img.height * scaleSize;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                            
+                            push(ref(db, "chats"), { sender: MY_NAME, text: "", url: compressedBase64, type: 'image', timestamp: Date.now(), hidden: false, read: false });
+                            closeMenus();
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                };
+            }
+        };
+
+        window.sendUrl = (type) => {
+            const url = prompt(`Paste ${type} Link (YouTube/Drive/etc):`);
+            if(url) {
+                push(ref(db, "chats"), { sender: MY_NAME, url: url, type: type, timestamp: Date.now(), hidden: false, read: false });
+                closeMenus();
+            }
+        };
+
+        window.sendMessage = () => {
+            const input = document.getElementById('msgInput');
+            if(!input.value.trim()) return;
+            push(ref(db, "chats"), { sender: MY_NAME, text: input.value, timestamp: Date.now(), type: 'text', hidden: false, read: false });
+            input.value = "";
+        };
+
+        // --- ACTIONS ---
+        window.openReactionMenu = (id) => { activeMessageId = id; document.getElementById('reactionBar').style.display = 'flex'; };
+        window.react = (emoji) => { update(ref(db, `chats/${activeMessageId}`), { reaction: emoji }); closeMenus(); };
+
+        window.openEditMenu = (id, text, isMe) => {
+            activeMessageId = id; activeMessageText = text;
+            const menu = document.getElementById('editMenu');
+            document.getElementById('editOption').style.display = isMe ? 'block' : 'none';
+            document.getElementById('unsendOption').style.display = isMe ? 'block' : 'none';
+            menu.style.display = 'flex';
+        };
+
+        window.handleAction = (action) => {
+            if (action === 'copy') navigator.clipboard.writeText(activeMessageText || "Media");
+            else if (action === 'unsend') update(ref(db, `chats/${activeMessageId}`), { hidden: true });
+            else if (action === 'edit') {
+                const txt = prompt("Edit:", activeMessageText);
+                if (txt) update(ref(db, `chats/${activeMessageId}`), { text: txt, edited: true });
+            } else if (action === 'pin') {
+                get(ref(db, `chats/${activeMessageId}`)).then(snap => {
+                    const txt = snap.val().text || "Media File";
+                    set(ref(db, "system/pin"), { text: txt });
+                });
+            }
+            closeMenus();
+        };
+
+        window.closeMenus = () => {
+            document.getElementById('reactionBar').style.display = 'none';
+            document.getElementById('editMenu').style.display = 'none';
+            document.getElementById('plusMenu').style.display = 'none';
+        };
+
+        // --- SEARCH ---
+        window.openSearch = () => {
+            document.getElementById('search-bar-overlay').style.display = 'flex';
+            document.getElementById('search-input').focus();
+            get(ref(db, "chats")).then((snapshot) => {
+                fullChatCache = [];
+                snapshot.forEach(child => { fullChatCache.push({ id: child.key, ...child.val() }); });
+            });
+        };
+        window.closeSearch = () => { document.getElementById('search-bar-overlay').style.display = 'none'; document.getElementById('search-results').style.display = 'none'; };
+        window.performSearch = (q) => {
+            const res = document.getElementById('search-results');
+            if (q.length < 2) { res.style.display = 'none'; return; }
+            res.style.display = 'block'; res.innerHTML = "";
+            // Only search text messages, ignore images/videos to avoid crashes
+            const matches = fullChatCache.filter(m => m.text && m.text.toLowerCase().includes(q.toLowerCase()) && !m.hidden).reverse();
+            matches.forEach(msg => {
+                const d = document.createElement('div'); d.style.padding='10px'; d.style.borderBottom='1px solid #eee';
+                d.innerHTML = `<div style="font-size:13px; font-weight:600;">${msg.text}</div><div style="font-size:10px; color:#888;">${new Date(msg.timestamp).toLocaleString()}</div>`;
+                res.appendChild(d);
+            });
+        };
+
+        // --- PIN ---
+        onValue(ref(db, "system/pin"), (s) => {
+            const b = document.getElementById('pin-bar');
+            if(s.val()) { b.style.display='block'; document.getElementById('pin-text').innerText = s.val().text; } else b.style.display='none';
+        });
+        window.unpinMessage = () => { if(confirm("Unpin?")) remove(ref(db, "system/pin")); };
+
+        loadChat();
+    </script>
+</body>
+</html>
