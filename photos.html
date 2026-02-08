@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vault | Digital Archive</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap');
+
+        :root {
+            --glass: rgba(255, 255, 255, 0.12);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --accent-pink: #ff8fa3;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background: linear-gradient(145deg, #eeb0b0 0%, #d49393 100%);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            color: white;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        /* --- HEADER --- */
+        .gallery-header {
+            max-width: 1200px;
+            margin: 0 auto 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .gallery-header h1 { font-size: clamp(24px, 5vw, 40px); font-weight: 900; letter-spacing: -2px; line-height: 1; }
+        .gallery-header p { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 3px; opacity: 0.7; margin-bottom: 5px; }
+
+        .back-btn {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            padding: 12px 24px;
+            border-radius: 18px;
+            color: white;
+            text-decoration: none;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            backdrop-filter: blur(15px);
+            transition: 0.3s;
+        }
+        .back-btn:active { transform: scale(0.95); }
+
+        /* --- MASONRY GRID --- */
+        .masonry-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            grid-auto-rows: 200px;
+            gap: 15px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .media-card {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 25px;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            backdrop-filter: blur(5px);
+            animation: fadeIn 0.6s ease-out;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .media-card:hover { transform: scale(1.02) translateY(-5px); z-index: 10; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+
+        /* Variations for Pinterest Look */
+        .media-card.wide { grid-column: span 2; }
+        .media-card.tall { grid-row: span 2; }
+
+        .media-card img, .media-card video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            pointer-events: none;
+        }
+
+        /* Media Overlays */
+        .type-icon {
+            position: absolute;
+            top: 15px; right: 15px;
+            background: rgba(0,0,0,0.3);
+            width: 30px; height: 30px;
+            border-radius: 10px;
+            display: flex; justify-content: center; align-items: center;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .media-info {
+            position: absolute;
+            bottom: 0; left: 0; width: 100%;
+            padding: 20px 15px;
+            background: linear-gradient(transparent, rgba(0,0,0,0.7));
+            opacity: 0;
+            transition: 0.3s;
+        }
+        .media-card:hover .media-info { opacity: 1; }
+        .sender-tag { font-size: 11px; font-weight: 900; color: var(--accent-pink); text-transform: uppercase; }
+        .date-tag { font-size: 9px; opacity: 0.8; font-weight: 500; }
+
+        /* --- FULLSCREEN MODAL --- */
+        #media-modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(20px);
+        }
+        #modal-content { 
+            max-width: 95%; 
+            max-height: 85vh; 
+            border-radius: 20px;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+        }
+        .close-modal { 
+            position: absolute; top: 25px; right: 25px; 
+            color: white; font-size: 35px; font-weight: 100;
+            cursor: pointer; width: 50px; height: 50px;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        /* No Content State */
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 100px 0;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+
+    <header class="gallery-header">
+        <div>
+            <p>Archive System</p>
+            <h1>Shared Vault</h1>
+        </div>
+        <a href="home.html" class="back-btn">Close Vault</a>
+    </header>
+
+    <div class="masonry-grid" id="gallery-grid">
+        </div>
+
+    <div id="media-modal" onclick="closeModal()">
+        <div class="close-modal">&times;</div>
+        <div id="modal-container" onclick="event.stopPropagation()"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBgQiuJHWCNfS4pIMHFIBpa6VsYrOx_oqU",
+            authDomain: "vanshika-chat.firebaseapp.com",
+            databaseURL: "https://vanshika-chat-default-rtdb.firebaseio.com",
+            projectId: "vanshika-chat",
+            appId: "1:564426358988:web:0e95c473fe3922c866c269"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Fetch from the shared chat path
+        const chatRef = ref(db, "chats");
+
+        onValue(chatRef, (snapshot) => {
+            const grid = document.getElementById('gallery-grid');
+            grid.innerHTML = "";
+            let hasMedia = false;
+            
+            snapshot.forEach((child) => {
+                const data = child.val();
+                
+                // VALIDATION: Type check + URL check + Hidden (Unsend) check
+                if ((data.type === 'image' || data.type === 'video') && data.url && !data.hidden) {
+                    hasMedia = true;
+                    renderMediaItem(data, grid);
+                }
+            });
+
+            if (!hasMedia) {
+                grid.innerHTML = `<div class="empty-state"><h3>The vault is currently empty.</h3><p>Share photos or videos in the chat to see them here.</p></div>`;
+            }
+        });
+
+        function renderMediaItem(data, container) {
+            const card = document.createElement('div');
+            
+            // Pinterest-style random spans
+            const spans = ['','wide','tall',''];
+            const randomSpan = spans[Math.floor(Math.random() * spans.length)];
+            card.className = `media-card ${randomSpan}`;
+            
+            let typeIndicator = "";
+            let previewHtml = "";
+
+            if (data.type === 'image') {
+                typeIndicator = `<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>`;
+                previewHtml = `<img src="${data.url}" loading="lazy" onerror="this.parentElement.remove()">`;
+            } else {
+                typeIndicator = `<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>`;
+                previewHtml = `<video src="${data.url}" muted onerror="this.parentElement.remove()"></video>`;
+            }
+
+            card.innerHTML = `
+                ${previewHtml}
+                <div class="type-icon">${typeIndicator}</div>
+                <div class="media-info">
+                    <p class="sender-tag">${data.sender}</p>
+                    <p class="date-tag">${new Date(data.timestamp).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                </div>
+            `;
+
+            card.onclick = () => openFullscreen(data);
+            container.prepend(card); // Newest items first
+        }
+
+        window.openFullscreen = (data) => {
+            const modal = document.getElementById('media-modal');
+            const container = document.getElementById('modal-container');
+            modal.style.display = 'flex';
+            
+            if (data.type === 'image') {
+                container.innerHTML = `<img src="${data.url}" id="modal-content">`;
+            } else {
+                container.innerHTML = `<video src="${data.url}" id="modal-content" controls autoplay></video>`;
+            }
+        };
+
+        window.closeModal = () => {
+            const modal = document.getElementById('media-modal');
+            const container = document.getElementById('modal-container');
+            modal.style.display = 'none';
+            container.innerHTML = ""; // Stop videos from playing in background
+        };
+    </script>
+</body>
+</html>

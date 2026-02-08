@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@900&display=swap');
+
+        :root {
+            --bg-pink: #f9dcdc; /* Lighter paper pink */
+            --pencil-red: #e63946;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body, html {
+            height: 100%;
+            background-color: var(--bg-pink);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Paper Fiber Texture */
+        body::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0.12;
+            pointer-events: none;
+            background-image: url('https://www.transparenttextures.com/patterns/paper-fibers.png');
+        }
+
+        .container {
+            text-align: center;
+            z-index: 10;
+        }
+
+        /* --- Refined Stop-Motion Doodle --- */
+        .heart-box {
+            width: 150px;
+            height: 150px;
+            margin: 0 auto;
+        }
+
+        .heart-svg {
+            width: 100%;
+            height: 100%;
+            fill: var(--pencil-red);
+            stroke: white;
+            stroke-width: 2;
+        }
+
+        /* This creates the 'hand-drawn' flicker every 0.4s */
+        .boiling-heart {
+            animation: boil 0.4s step-end infinite;
+        }
+
+        @keyframes boil {
+            0% { d: path("M12,21.35L10.55,20.03C5.4,15.36 2,12.28 2,8.5C2,5.42 4.42,3 7.5,3C9.24,3 10.91,3.81 12,5.09C13.09,3.81 14.76,3 16.5,3C19.58,3 22,5.42 22,8.5C22,12.28 18.6,15.36 13.45,20.03L12,21.35Z"); }
+            50% { d: path("M12,21.5L10.4,20.1C5.3,15.4 2.1,12.3 2.1,8.6C2.1,5.5 4.5,3.1 7.6,3.1C9.3,3.1 11,3.9 12.1,5.2C13.2,3.9 14.9,3.1 16.6,3.1C19.7,3.1 22.1,5.5 22.1,8.6C22.1,12.3 18.9,15.4 13.8,20.1L12,21.5Z"); }
+        }
+
+        .loading-text {
+            margin-top: 20px;
+            color: var(--pencil-red);
+            font-weight: 900;
+            font-size: 14px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="heart-box">
+            <svg class="heart-svg" viewBox="0 0 24 24">
+                <path class="boiling-heart" d="M12,21.35L10.55,20.03C5.4,15.36 2,12.28 2,8.5C2,5.42 4.42,3 7.5,3C9.24,3 10.91,3.81 12,5.09C13.09,3.81 14.76,3 16.5,3C19.58,3 22,5.42 22,8.5C22,12.28 18.6,15.36 13.45,20.03L12,21.35Z" />
+            </svg>
+        </div>
+        <p class="loading-text">Just a sec, cutie...</p>
+    </div>
+
+    <script>
+        setTimeout(() => {
+            // Check if user has visited before
+            const hasVisited = localStorage.getItem("hasVisited");
+
+            if (!hasVisited) {
+                // First time ever: Set the flag and go to 'Only for Her' intro
+                localStorage.setItem("hasVisited", "true");
+                window.location.href = "1st.html"; 
+            } else {
+                // Return user: Skip intro and go straight to the Chat Home
+                window.location.href = "home.html";
+            }
+        }, 2000); // 2 Seconds exactly
+    </script>
+</body>
+</html>
